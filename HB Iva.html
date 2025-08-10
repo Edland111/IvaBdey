@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Happy Birthday IVA — Pop the Hearts 💗</title>
+<style>
+  :root{
+    --bg-tint: rgba(255, 182, 193, 0.35); /* light romantic tint */
+    --heart-color:#ff6b9a;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    -webkit-tap-highlight-color: transparent;
+    background:#000;
+  }
+
+  /* Full-screen scene with the custom illustration as background */
+  .scene{
+    position:relative;
+    height:100vh;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background-image:
+      linear-gradient(var(--bg-tint), var(--bg-tint)),
+      url('background.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* soft sparkles overlay */
+  .sparkles{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background-image: radial-gradient(circle at 10% 20%, rgba(255,255,255,0.4) 0 2px, transparent 3px),
+                      radial-gradient(circle at 80% 30%, rgba(255,255,255,0.3) 0 2px, transparent 3px),
+                      radial-gradient(circle at 50% 80%, rgba(255,255,255,0.25) 0 2px, transparent 3px);
+    background-size: 400px 400px;
+    opacity:0.6;
+    mix-blend-mode:soft-light;
+    filter:blur(6px);
+  }
+
+  /* top message */
+  .hud{
+    position:absolute;
+    top:18px;
+    left:50%;
+    transform:translateX(-50%);
+    text-align:center;
+    z-index:1000;
+    color:#7b1732;
+    text-shadow:0 1px 0 rgba(255,255,255,0.8);
+  }
+  .hud h1{ margin:0;font-size:18px;letter-spacing:0.5px;}
+  .hud p{ margin:6px 0 0;font-size:13px;opacity:0.95;}
+
+  /* controls */
+  .controls{
+    position:absolute;
+    bottom:18px;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    gap:8px;
+    z-index:1000;
+  }
+  .btn{
+    background:linear-gradient(180deg,#fff 0,#ffdfe6 60%);
+    border:1px solid rgba(0,0,0,0.06);
+    padding:8px 12px;
+    border-radius:999px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    font-size:14px;
+    cursor:pointer;
+  }
+  .btn:active{ transform:translateY(1px); }
+
+  /* balloon container (full screen) */
+  .balloon-layer{ position:absolute; inset:0; pointer-events:none; z-index:10; }
+
+  /* each heart balloon */
+  .balloon{
+    --size: 90px;
+    position:absolute;
+    bottom:-120px;
+    width:var(--size);
+    height:var(--size);
+    pointer-events:auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transform-origin:center bottom;
+    cursor:pointer;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+
+  /* heart shape using :before/:after */
+  .balloon .heart{
+    width:calc(var(--size) * 0.6);
+    height:calc(var(--size) * 0.6);
+    position:relative;
+    transform:translateY(0);
+    transition:transform .12s linear;
+  }
+  .heart:before, .heart:after{
+    content:"";
+    position:absolute;
+    width:50%;
+    height:80%;
+    left:0;
+    top:0;
+    background:var(--heart-color);
+    border-radius:50% 50% 0 0;
+  }
+  .heart:after{
+    left:50%;
+    transform:translateX(-0%);
+  }
+  .heart svg{ display:block; width:100%;height:100%; }
+
+  /* balloon string */
+  .string{
+    position:absolute;
+    bottom:-20px;
+    width:2px;
+    height:18px;
+    background:linear-gradient(#d37d99,#b74f78);
+    border-radius:2px;
+    left:50%;
+    transform:translateX(-50%);
+  }
+
+  /* floating animation: move up and sway */
+  @keyframes floatUp{
+    0%{ transform: translateY(0) rotate(-8deg); opacity:0; }
+    5%{ opacity:1; }
+    50%{ transform: translateY(-60vh) rotate(6deg); }
+    100%{ transform: translateY(-120vh) rotate(-6deg); opacity:0; }
+  }
+
+  /* pop burst */
+  .burst{
+    position:fixed;
+    width:100px;
+    height:100px;
+    pointer-events:none;
+    transform:translate(-50%,-50%);
+    z-index:900;
+    opacity:0.95;
+    mix-blend-mode:screen;
+    filter:blur(0.5px);
+    animation: burstAnim .45s ease-out forwards;
+  }
+  @keyframes burstAnim{
+    0%{ transform: scale(0.4) translate(-50%,-50%); opacity:1; }
+    100%{ transform: scale(1.6) translate(-50%,-50%); opacity:0; }
+  }
+</style>
+</head>
+<body>
+<div class="scene" id="scene">
+  <div class="sparkles" aria-hidden="true"></div>
+
+  <div class="hud">
+    <h1>Happy Birthday, IVA 💖</h1>
+    <p>Tap the heart balloons to pop them — each pop will say <strong>“IVA”</strong>.</p>
+  </div>
+
+  <div class="balloon-layer" id="layer" aria-hidden="false"></div>
+
+  <div class="controls" role="toolbar" aria-label="Game controls">
+    <button class="btn" id="startBtn">Start</button>
+    <button class="btn" id="stopBtn">Stop</button>
+    <button class="btn" id="toggleVoiceBtn">Use Uploaded IVA</button>
+    <label class="btn" title="Upload your own iva.mp3"><input id="upload" type="file" accept="audio/*" style="display:none" />Upload</label>
+    <button class="btn" id="clearBtn">Clear</button>
+  </div>
+</div>
+
+<script>
+/* ======= Configuration ======= */
+const CONFIG = {
+  spawnRatePerSec: 0.9,        // approximate balloons spawned per second
+  maxOnScreen: 10,
+  sizeMin: 56,
+  sizeMax: 120,
+  floatDurationMin: 6.5,       // seconds to float off-screen
+  floatDurationMax: 11,
+  heartColors: ["#ff6b9a","#ff7fa6","#ff4c7a","#ff9bb3"],
+  useUploadedAudio: false
+};
+
+/* ======= State ======= */
+const layer = document.getElementById('layer');
+let running = false;
+let spawnTimer = null;
+let currentCount = 0;
+let uploadedAudioBuffer = null;
+let uploadedAudioUrl = null;
+
+/* ======= Audio Setup (pop tone using WebAudio) ======= */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playPopTone(){
+  const duration = 0.08;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 1200 + Math.random()*600;
+  gain.gain.value = 0.0001;
+  osc.type = "triangle";
+  osc.frequency.value = 600 + Math.random()*600;
+  osc.connect(bp);
+  bp.connect(gain);
+  gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.4, now + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  osc.start();
+  osc.stop(now + duration + 0.02);
+}
+
+/* ======= Speech synthesis ======= */
+function sayIVA(){
+  if (CONFIG.useUploadedAudio && uploadedAudioUrl){
+    const a = new Audio(uploadedAudioUrl);
+    a.play().catch(()=>{});
+    return;
+  }
+  if (!("speechSynthesis" in window)) return;
+  const utter = new SpeechSynthesisUtterance("I V A");
+  const voices = window.speechSynthesis.getVoices();
+  let preferred = voices.find(v => /female|woman|zira|susan|karen|australia/i.test(v.name)) || voices.find(v => /en-US|en-GB|English/.test(v.lang)) || voices[0];
+  if(preferred) utter.voice = preferred;
+  utter.rate = 0.95;
+  utter.pitch = 1.15;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+
+/* ======= Balloon creation and handling ======= */
+function spawnBalloon(){
+  if (currentCount >= CONFIG.maxOnScreen) return;
+  const el = document.createElement('div');
+  el.className = "balloon";
+  el.style.setProperty('--size', (rand(CONFIG.sizeMin, CONFIG.sizeMax)) + 'px');
+  el.style.left = (rand(6, 94)) + '%';
+  const color = CONFIG.heartColors[Math.floor(Math.random()*CONFIG.heartColors.length)];
+  el.innerHTML = `
+    <div class="heart" aria-hidden="true" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.06));">
+      <svg viewBox="0 0 32 29" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;">
+        <path d="M23.6 0C20.9 0 18.5 1.7 17 3.9 15.5 1.7 13.1 0 10.4 0 4.7 0 0 4.6 0 10.3 0 17.5 9 23.6 16 28 23 23.6 32 17.5 32 10.3 32 4.6 27.3 0 21.6 0z" fill="${color}"></path>
+      </svg>
+    </div>
+    <div class="string" aria-hidden="true"></div>
+  `;
+
+  const dur = randFloat(CONFIG.floatDurationMin, CONFIG.floatDurationMax);
+  const delay = randFloat(0, 1.1);
+  el.style.animation = `floatUp ${dur}s linear ${delay}s forwards`;
+  el.style.pointerEvents = 'auto';
+  layer.appendChild(el);
+  currentCount++;
+
+  const popHandler = (ev) => {
+    ev.stopPropagation();
+    popBalloon(el);
+  };
+  el.addEventListener('click', popHandler, {passive:true});
+  el.addEventListener('touchstart', function(ev){ ev.preventDefault(); popHandler(ev); }, {passive:false});
+  el.addEventListener('animationend', () => {
+    if (el.parentNode) el.parentNode.removeChild(el);
+    currentCount = Math.max(0,currentCount-1);
+  });
+}
+
+function popBalloon(el){
+  const rect = el.getBoundingClientRect();
+  const burst = document.createElement('div');
+  burst.className = 'burst';
+  burst.style.left = (rect.left + rect.width/2) + 'px';
+  burst.style.top = (rect.top + rect.height/2) + 'px';
+  burst.innerHTML = `
+    <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+      <g>
+        <circle cx="60" cy="60" r="8" fill="#fff" />
+        <g opacity="0.95">
+          <circle cx="30" cy="30" r="6" fill="#fff2" />
+          <circle cx="90" cy="30" r="6" fill="#fff2" />
+          <circle cx="30" cy="90" r="6" fill="#fff2" />
+          <circle cx="90" cy="90" r="6" fill="#fff2" />
+        </g>
+      </g>
+    </svg>
+  `;
+  document.body.appendChild(burst);
+
+  const heart = el.querySelector('.heart');
+  if (heart) {
+    heart.style.transform = 'scale(0.2) rotate(-20deg)';
+    heart.style.transition = 'transform 0.15s ease-out';
+  }
+
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  playPopTone();
+  setTimeout(sayIVA, 80);
+
+  setTimeout(()=>{ if (el.parentNode) el.parentNode.removeChild(el); currentCount = Math.max(0,currentCount-1); }, 120);
+  setTimeout(()=>{ if (burst.parentNode) burst.parentNode.removeChild(burst); }, 480);
+}
+
+/* ======= Helpers ======= */
+function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function randFloat(min,max){ return Math.random()*(max-min)+min; }
+
+/* ======= Spawner control ======= */
+function startSpawning(){
+  if (running) return;
+  running = true;
+  spawnTimer = setInterval(()=> {
+    if (Math.random() < CONFIG.spawnRatePerSec) spawnBalloon();
+  }, 1000);
+}
+
+function stopSpawning(){
+  running = false;
+  if (spawnTimer) { clearInterval(spawnTimer); spawnTimer = null; }
+}
+
+function clearAll(){
+  stopSpawning();
+  const children = Array.from(layer.children);
+  children.forEach(c => c.parentNode && c.parentNode.removeChild(c));
+  currentCount = 0;
+}
+
+/* ======= UI wiring ======= */
+document.getElementById('startBtn').addEventListener('click', () => {
+  if (typeof speechSynthesis !== 'undefined') speechSynthesis.getVoices();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  startSpawning();
+});
+document.getElementById('stopBtn').addEventListener('click', stopSpawning);
+document.getElementById('clearBtn').addEventListener('click', clearAll);
+
+const toggleVoiceBtn = document.getElementById('toggleVoiceBtn');
+toggleVoiceBtn.addEventListener('click', () => {
+  CONFIG.useUploadedAudio = !CONFIG.useUploadedAudio;
+  toggleVoiceBtn.textContent = CONFIG.useUploadedAudio ? 'Using Uploaded IVA' : 'Use Uploaded IVA';
+});
+
+const uploadInput = document.getElementById('upload');
+uploadInput.addEventListener('change', async (ev) => {
+  const f = ev.target.files[0];
+  if (!f) return;
+  if (uploadedAudioUrl) URL.revokeObjectURL(uploadedAudioUrl);
+  uploadedAudioUrl = URL.createObjectURL(f);
+  CONFIG.useUploadedAudio = true;
+  toggleVoiceBtn.textContent = 'Using Uploaded IVA';
+  try {
+    const arr = await f.arrayBuffer();
+    uploadedAudioBuffer = await audioCtx.decodeAudioData(arr.slice(0));
+  } catch(e){ uploadedAudioBuffer = null; }
+});
+
+document.querySelector('label[title]').addEventListener('click', ()=> uploadInput.click());
+
+/* Welcome balloons */
+function welcomeBurst(){
+  for(let i=0;i<6;i++){
+    setTimeout(spawnBalloon, i*180);
+  }
+}
+welcomeBurst();
+
+/* Mobile init */
+document.addEventListener('touchstart', function initOnce(){
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (typeof speechSynthesis !== 'undefined') speechSynthesis.getVoices();
+  document.removeEventListener('touchstart', initOnce);
+}, {passive:true});
+</script>
+</body>
+</html>
